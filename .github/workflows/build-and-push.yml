@@ -1,0 +1,73 @@
+name: Build and Push Docker Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag for the image (e.g., v1.0.0, latest)'
+        required: false
+        default: 'latest'
+      kagent_version:
+        description: 'Kagent version/branch to build from (e.g., main, v1.0.0)'
+        required: false
+        default: 'main'
+
+env:
+  DOCKER_HUB_USERNAME: olensmar
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_HUB_USERNAME }}/kagent-cli
+          tags: |
+            type=raw,value=${{ github.event.inputs.version }}
+            type=raw,value=latest,enable=${{ github.event.inputs.version == 'latest' }}
+          labels: |
+            org.opencontainers.image.title=Kagent CLI
+            org.opencontainers.image.description=Kagent CLI Docker image for invoking agents
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ github.event.inputs.version }}
+            kagent.version=${{ github.event.inputs.kagent_version }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.event.inputs.version }}
+            KAGENT_VERSION=${{ github.event.inputs.kagent_version }}
+            LDFLAGS=-X main.version=${{ github.event.inputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image digest
+        run: |
+          echo "Image pushed successfully!"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Kagent version: ${{ github.event.inputs.kagent_version }}"
+

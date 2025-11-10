@@ -31,6 +31,24 @@ make docker-build-cli-multiarch
 
 Note: This requires Docker Buildx to be set up.
 
+### Automated Builds with GitHub Actions
+
+Pre-built images are available on Docker Hub at `olensmar/kagent-cli`.
+
+To trigger a new build and push to Docker Hub:
+
+1. **Set up Docker Hub credentials** (one-time setup):
+   - Create a Docker Hub access token at https://hub.docker.com/settings/security
+   - Add it as a GitHub secret named `DOCKERHUB_TOKEN` in your repository settings
+
+2. **Trigger the workflow**:
+   - Go to the **Actions** tab in GitHub
+   - Select **"Build and Push Docker Image"**
+   - Click **"Run workflow"**
+   - Specify the version tag and kagent version to build
+
+See [.github/workflows/README.md](.github/workflows/README.md) for detailed instructions.
+
 ## Using the Image
 
 ### Prerequisites
@@ -43,6 +61,10 @@ Note: This requires Docker Buildx to be set up.
 
 Show help:
 ```bash
+# Using Docker Hub image
+docker run --rm olensmar/kagent-cli:latest
+
+# Or using locally built image
 docker run --rm kagent-cli:latest
 ```
 
