@@ -201,6 +201,28 @@ test_volume_mount() {
     fi
 }
 
+# Test 11: Check jq binary exists and works
+test_jq_binary() {
+    print_test "Checking jq binary"
+    
+    if docker run --rm --entrypoint jq "$IMAGE_NAME" --version >/dev/null 2>&1; then
+        version=$(docker run --rm --entrypoint jq "$IMAGE_NAME" --version 2>&1)
+        print_pass "jq binary present and working ($version)"
+        
+        # Test jq can process JSON
+        if docker run --rm --entrypoint sh "$IMAGE_NAME" -c 'echo "{\"test\":\"value\"}" | jq .test' 2>/dev/null | grep -q "value"; then
+            print_pass "jq can process JSON correctly"
+            return 0
+        else
+            print_fail "jq cannot process JSON"
+            return 1
+        fi
+    else
+        print_fail "jq binary not found or not working"
+        return 1
+    fi
+}
+
 # Main execution
 main() {
     print_header "Kagent CLI Docker Image Test Suite"
@@ -212,6 +234,7 @@ main() {
     test_image_size
     test_kagent_binary
     test_kubectl_binary
+    test_jq_binary
     test_help_command
     test_entrypoint
     test_user_privileges

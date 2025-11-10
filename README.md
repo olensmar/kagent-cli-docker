@@ -6,6 +6,7 @@ This directory contains a Dockerfile for building a containerized version of the
 
 - **Minimal Image**: Built on Chainguard's minimal base images for security and size
 - **kubectl Included**: Includes kubectl for port-forwarding to Kubernetes clusters
+- **jq Included**: Includes jq for JSON processing and filtering
 - **Multi-arch Support**: Supports both AMD64 and ARM64 architectures
 - **Non-root User**: Runs as non-root user for enhanced security
 

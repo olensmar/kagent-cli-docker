@@ -34,6 +34,9 @@ ARG VERSION
 
 WORKDIR /app
 
+# Install jq for JSON processing
+RUN apk add --no-cache jq
+
 # Copy binaries
 COPY --from=builder /workspace/kagent/go/kagent /usr/local/bin/kagent
 COPY --from=kubectl /usr/bin/kubectl /usr/local/bin/kubectl
