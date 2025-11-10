@@ -1,0 +1,85 @@
+version: '3.8'
+
+# Advanced docker-compose configuration for kagent CLI
+# This example shows multiple services and configurations
+
+services:
+  # Basic kagent CLI service
+  kagent-cli:
+    image: kagent-cli:latest
+    build:
+      context: ../..
+      dockerfile: Dockerfile.cli
+    volumes:
+      - ~/.kube/config:/home/nonroot/.kube/config:ro
+      - kagent-config:/home/nonroot/.kagent
+      - ./tasks:/tasks:ro  # Mount local tasks directory
+    network_mode: host
+    environment:
+      - KUBECONFIG=/home/nonroot/.kube/config
+    command: ["--help"]
+
+  # Service for batch processing
+  kagent-batch:
+    image: kagent-cli:latest
+    volumes:
+      - ~/.kube/config:/home/nonroot/.kube/config:ro
+      - kagent-config:/home/nonroot/.kagent
+      - ./batch-tasks:/batch-tasks:ro
+      - ./results:/results:rw  # Output directory
+    network_mode: host
+    environment:
+      - KUBECONFIG=/home/nonroot/.kube/config
+      - KAGENT_NAMESPACE=kagent
+      - KAGENT_AGENT=k8s-agent
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for task in /batch-tasks/*.txt; do
+          echo "Processing: $$task"
+          kagent invoke \
+            --agent "$$KAGENT_AGENT" \
+            --namespace "$$KAGENT_NAMESPACE" \
+            --file "$$task" > "/results/$$(basename $$task .txt).json"
+        done
+
+  # Service with custom kagent URL
+  kagent-remote:
+    image: kagent-cli:latest
+    environment:
+      - KAGENT_URL=http://kagent.example.com:8083
+      - KAGENT_NAMESPACE=production
+    command: ["get", "agent"]
+
+  # Interactive shell for exploration
+  kagent-shell:
+    image: kagent-cli:latest
+    volumes:
+      - ~/.kube/config:/home/nonroot/.kube/config:ro
+      - kagent-config:/home/nonroot/.kagent
+    network_mode: host
+    environment:
+      - KUBECONFIG=/home/nonroot/.kube/config
+      - PS1='kagent-cli> '
+    entrypoint: ["/bin/sh"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  kagent-config:
+    driver: local
+
+# Usage examples:
+#
+# Run basic CLI:
+#   docker-compose run --rm kagent-cli invoke --agent k8s-agent --task "List pods"
+#
+# Run batch processing:
+#   docker-compose run --rm kagent-batch
+#
+# Start interactive shell:
+#   docker-compose run --rm kagent-shell
+#
+# Use remote kagent:
+#   docker-compose run --rm kagent-remote
+

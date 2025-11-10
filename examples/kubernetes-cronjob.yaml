@@ -1,0 +1,237 @@
+---
+# ServiceAccount for kagent CLI
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kagent-cli
+  namespace: kagent
+  labels:
+    app: kagent-cli
+
+---
+# Role for accessing kagent API (if needed)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kagent-cli-reader
+  namespace: kagent
+spec:
+  rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list"]
+
+---
+# RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kagent-cli-reader-binding
+  namespace: kagent
+subjects:
+- kind: ServiceAccount
+  name: kagent-cli
+  namespace: kagent
+roleRef:
+  kind: Role
+  name: kagent-cli-reader
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ConfigMap for storing tasks
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kagent-cli-tasks
+  namespace: kagent
+data:
+  hourly-health-check.txt: |
+    Generate a comprehensive health check report for the kagent namespace:
+    1. List all pods and their status
+    2. Check resource utilization
+    3. Verify all services are accessible
+    4. Report any anomalies or issues
+    5. Provide recommendations
+  
+  daily-summary.txt: |
+    Create a daily summary report:
+    1. Number of agent invocations in the last 24 hours
+    2. Most active agents
+    3. Average response times
+    4. Any errors or failures
+    5. Resource usage trends
+
+---
+# CronJob for hourly health checks
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kagent-cli-health-check
+  namespace: kagent
+  labels:
+    app: kagent-cli
+    task: health-check
+spec:
+  schedule: "0 * * * *"  # Every hour
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: kagent-cli
+        task: health-check
+    spec:
+      template:
+        metadata:
+          labels:
+            app: kagent-cli
+            task: health-check
+        spec:
+          serviceAccountName: kagent-cli
+          restartPolicy: OnFailure
+          containers:
+          - name: kagent-cli
+            image: kagent-cli:latest
+            imagePullPolicy: IfNotPresent
+            args:
+            - "invoke"
+            - "--agent"
+            - "k8s-agent"
+            - "--namespace"
+            - "kagent"
+            - "--file"
+            - "/tasks/hourly-health-check.txt"
+            env:
+            - name: KAGENT_URL
+              value: "http://kagent-controller.kagent.svc.cluster.local:8083"
+            - name: KAGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            volumeMounts:
+            - name: tasks
+              mountPath: /tasks
+              readOnly: true
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "500m"
+          volumes:
+          - name: tasks
+            configMap:
+              name: kagent-cli-tasks
+
+---
+# CronJob for daily summaries
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kagent-cli-daily-summary
+  namespace: kagent
+  labels:
+    app: kagent-cli
+    task: daily-summary
+spec:
+  schedule: "0 8 * * *"  # Every day at 8 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      labels:
+        app: kagent-cli
+        task: daily-summary
+    spec:
+      template:
+        metadata:
+          labels:
+            app: kagent-cli
+            task: daily-summary
+        spec:
+          serviceAccountName: kagent-cli
+          restartPolicy: OnFailure
+          containers:
+          - name: kagent-cli
+            image: kagent-cli:latest
+            imagePullPolicy: IfNotPresent
+            args:
+            - "invoke"
+            - "--agent"
+            - "k8s-agent"
+            - "--namespace"
+            - "kagent"
+            - "--file"
+            - "/tasks/daily-summary.txt"
+            - "--stream"
+            env:
+            - name: KAGENT_URL
+              value: "http://kagent-controller.kagent.svc.cluster.local:8083"
+            - name: KAGENT_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            volumeMounts:
+            - name: tasks
+              mountPath: /tasks
+              readOnly: true
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "256Mi"
+                cpu: "500m"
+          volumes:
+          - name: tasks
+            configMap:
+              name: kagent-cli-tasks
+
+---
+# One-time Job example
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kagent-cli-onetime-analysis
+  namespace: kagent
+  labels:
+    app: kagent-cli
+    task: onetime
+spec:
+  ttlSecondsAfterFinished: 3600  # Clean up after 1 hour
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: kagent-cli
+        task: onetime
+    spec:
+      serviceAccountName: kagent-cli
+      restartPolicy: Never
+      containers:
+      - name: kagent-cli
+        image: kagent-cli:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - "invoke"
+        - "--agent"
+        - "k8s-agent"
+        - "--namespace"
+        - "kagent"
+        - "--task"
+        - "Perform a comprehensive security analysis of the kagent namespace"
+        - "--stream"
+        env:
+        - name: KAGENT_URL
+          value: "http://kagent-controller.kagent.svc.cluster.local:8083"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+

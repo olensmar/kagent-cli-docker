@@ -1,0 +1,10 @@
+Please analyze the kagent namespace and provide a detailed report including:
+
+1. List all pods and their current status
+2. Identify any pods that are not in a healthy state
+3. Check the resource usage of each pod
+4. List all services and their endpoints
+5. Provide recommendations for any issues found
+
+Please format the output in a clear and structured manner.
+

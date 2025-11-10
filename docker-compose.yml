@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  kagent-cli:
+    image: kagent-cli:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.cli
+      args:
+        - LDFLAGS=${LDFLAGS}
+        - VERSION=${VERSION:-latest}
+    volumes:
+      # Mount kubeconfig for Kubernetes access (read-only)
+      - ~/.kube/config:/home/nonroot/.kube/config:ro
+      # Persist kagent CLI configuration
+      - kagent-config:/home/nonroot/.kagent
+      # Optional: Mount local files/tasks
+      # - ./tasks:/tasks:ro
+    network_mode: host
+    environment:
+      - KUBECONFIG=/home/nonroot/.kube/config
+    # Override entrypoint to use as interactive shell
+    # Uncomment the following to get a shell in the container:
+    # entrypoint: ["/bin/sh"]
+    # Or use default entrypoint and override command:
+    command: ["--help"]
+
+volumes:
+  kagent-config:
+    driver: local
+
